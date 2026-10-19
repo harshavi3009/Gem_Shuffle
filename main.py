@@ -8,9 +8,11 @@ import pygame
 import data
 import game
 import report
-from settings import (SCREEN, FPS, TABLE_Y, BOWL_R, LIFT_ASIDE, SHADOW_ALPHA,
-                      SHOW_MS, COVER_MS, REVEAL_MS, BACKGROUND, TABLE, RIM_COLOUR,
-                      INNER_COLOUR, TEXT, GOLD, RED, GREEN)
+import ui
+from settings import (SCREEN, FPS, TABLE_Y, BOWL_R, LIFT_ASIDE, SHADOW_ALPHA, LIVES,
+                      SHOW_MS, COVER_MS, REVEAL_MS, BACKGROUND, TABLE, TABLE_EDGE,
+                      PANEL, PANEL_EDGE, RIM_COLOUR, INNER_COLOUR, TEXT, MUTED,
+                      GOLD, RED, GREEN)
 
 # Set to True to run the 1,000-round tracking check when the game starts
 DEBUG = False
@@ -26,8 +28,9 @@ def main():
     pygame.display.set_caption("Gem Shuffle")
     clock = pygame.time.Clock()
 
-    # Step 2: load the fonts once, before the loop
+    # Step 2: load the fonts and the background once, before the loop
     fonts = load_fonts()
+    background = ui.make_background()
 
     # Step 3: load the levels and gems from the CSV files
     levels, gems = data.load_all()
@@ -74,9 +77,10 @@ def main():
         if state == "play":
             round_, state = update_play(round_, play_game, levels, gems, now)
 
-        # 3. DRAW: draw the screen for the current state
+        # 3. DRAW: the background first, then the screen for the current state
+        screen.blit(background, (0, 0))
         if state == "menu":
-            draw_menu(screen, fonts, name)
+            draw_menu(screen, fonts, name, now)
         elif state == "play":
             draw_play(screen, fonts, round_, play_game, len(levels), now)
         elif state == "report":
@@ -93,8 +97,8 @@ def main():
 def load_fonts():
     # Font(None, size) uses pygame's built-in font, so no font file is needed
     fonts = {}
-    fonts["title"] = pygame.font.Font(None, 72)
-    fonts["big"] = pygame.font.Font(None, 44)
+    fonts["title"] = pygame.font.Font(None, 76)
+    fonts["big"] = pygame.font.Font(None, 46)
     fonts["text"] = pygame.font.Font(None, 32)
     fonts["small"] = pygame.font.Font(None, 26)
     return fonts
@@ -131,7 +135,7 @@ def menu_event(event, name):
 def start_game(name, levels, gems, now):
     # Make a new game for this player and deal the first round.
     # An empty name becomes "Player". The game id is 0 until report.py
-    # gives each game a real number in step 4.
+    # gives each game a real number when it is saved.
     clean_name = name.strip()
     if clean_name == "":
         clean_name = "Player"
@@ -316,44 +320,51 @@ def shuffle_pose(bowl, round_, now):
 
 # ---------- drawing ----------
 
-def draw_menu(screen, fonts, name):
-    screen.fill(BACKGROUND)
-    draw_text(screen, fonts["title"], "Gem Shuffle", GOLD, (450, 80))
+def draw_menu(screen, fonts, name, now):
+    # The title, then one card with the name box, the rules and the buttons
+    ui.draw_text(screen, fonts["title"], "Gem Shuffle", GOLD, (450, 70))
+    ui.draw_text(screen, fonts["small"], "Find the gem under the bowls", MUTED, (450, 115))
+    ui.draw_panel(screen, pygame.Rect(150, 150, 600, 380))
 
-    # Name box
-    draw_text(screen, fonts["text"], "Your name:", TEXT, (450, 170))
-    box = pygame.Rect(300, 195, 300, 44)
-    pygame.draw.rect(screen, TEXT, box, 2)
-    draw_text(screen, fonts["text"], name + "_", TEXT, box.center)
+    # Name box, with a blinking caret after the name
+    ui.draw_text_left(screen, fonts["small"], "YOUR NAME", MUTED, (190, 178))
+    box = pygame.Rect(190, 205, 520, 50)
+    pygame.draw.rect(screen, BACKGROUND, box, border_radius=10)
+    pygame.draw.rect(screen, GOLD, box, 2, border_radius=10)
+    caret = "|" if (now // 500) % 2 == 0 else " "
+    ui.draw_text_left(screen, fonts["text"], name + caret, TEXT, (box.x + 16, box.y + 13))
 
     # How to play, in short lines
     lines = [
         "Watch the gem, then watch the bowls shuffle.",
-        "Click the bowl that hides the gem, or press its number 1-5.",
-        "A streak of 3 correct answers doubles your points.",
+        "Click the bowl that hides the gem, or press 1 to 5.",
+        "3 correct answers in a row doubles your points.",
         "You have 3 lives. A wrong answer costs one.",
     ]
     for i in range(len(lines)):
-        draw_text(screen, fonts["small"], lines[i], TEXT, (450, 300 + i * 30))
+        ui.draw_text_left(screen, fonts["small"], lines[i], TEXT, (190, 282 + i * 30))
 
-    draw_text(screen, fonts["text"], "Enter = play", GREEN, (450, 470))
-    draw_text(screen, fonts["text"], "L = leaderboard (name box empty)", TEXT, (450, 510))
+    # Buttons, and a hint about the L key
+    ui.draw_pill(screen, fonts["text"], "Enter  Play", BACKGROUND, GREEN, (330, 462))
+    ui.draw_pill(screen, fonts["text"], "L  Leaderboard", TEXT, PANEL_EDGE, (600, 462))
+    ui.draw_text(screen, fonts["small"], "The L key works only while the name box is empty.", MUTED, (450, 508))
 
 
 def draw_play(screen, fonts, round_, play_game, total_levels, now):
-    # Drawing order: table, slot numbers, gem, shadows, resting bowls,
-    # moving bowls, then the HUD on top
-    screen.fill(TABLE)
+    # Drawing order: the top bar, the table, slot numbers, the gem,
+    # shadows, resting bowls, moving bowls, the rings, and the phase text
+    draw_hud(screen, fonts, round_, play_game, total_levels)
+    ui.draw_panel(screen, pygame.Rect(40, 150, 820, 330), TABLE, TABLE_EDGE)
     draw_slot_numbers(screen, fonts, round_)
     draw_bowls(screen, round_, now)
-    draw_hud(screen, fonts, round_, play_game, total_levels)
+    draw_phase_text(screen, fonts, round_)
 
 
 def draw_slot_numbers(screen, fonts, round_):
     # Numbers under each resting slot, to match the number keys
     for i in range(len(round_["slots_x"])):
         x = round_["slots_x"][i]
-        draw_text(screen, fonts["small"], str(i + 1), TEXT, (int(x), TABLE_Y + BOWL_R + 18))
+        ui.draw_text(screen, fonts["small"], str(i + 1), TEXT, (int(x), TABLE_Y + BOWL_R + 18))
 
 
 def draw_bowls(screen, round_, now):
@@ -381,6 +392,29 @@ def draw_bowls(screen, round_, now):
         if pose[3]:
             draw_bowl(screen, pose[0], pose[1], pose[2])
 
+    draw_rings(screen, round_, poses)
+
+
+def draw_rings(screen, round_, poses):
+    # Coloured rings show what the player can click, and what was right.
+    # They are drawn last, so they sit on top of the bowls.
+    phase = round_["phase"]
+    for i in range(len(poses)):
+        bowl = round_["cups_list"][i]
+        centre = (int(poses[i][0]), int(poses[i][1]))
+
+        # Choose phase: a gold ring under the mouse shows the bowl you will pick
+        if phase == "choose":
+            rest_x = round_["slots_x"][bowl["slot"]]
+            if game.bowl_rect(rest_x).collidepoint(pygame.mouse.get_pos()):
+                pygame.draw.circle(screen, GOLD, centre, BOWL_R + 8, 3)
+
+        # Reveal phase: green for the right bowl, red for a wrong pick
+        if phase == "reveal" and bowl["slot"] == round_["answer_slot"]:
+            pygame.draw.circle(screen, GREEN, centre, BOWL_R + 8, 4)
+        if phase == "reveal" and round_["correct"] == 0 and bowl["slot"] == round_["chosen_slot"]:
+            pygame.draw.circle(screen, RED, centre, BOWL_R + 8, 4)
+
 
 def find_gem_bowl(round_):
     # The bowl that hides the gem, found by its id
@@ -404,7 +438,7 @@ def draw_shadow(screen, x, y):
     size = BOWL_R * 2
     shadow = pygame.Surface((size, size))
     shadow.set_colorkey((0, 0, 0))
-    pygame.draw.circle(shadow, (40, 40, 40), (BOWL_R, BOWL_R), BOWL_R)
+    pygame.draw.circle(shadow, (20, 50, 45), (BOWL_R, BOWL_R), BOWL_R)
     shadow.set_alpha(SHADOW_ALPHA)
     screen.blit(shadow, (x + 6 - BOWL_R, y + 6 - BOWL_R))
 
@@ -416,47 +450,71 @@ def draw_gem(screen, x, y):
 
 
 def draw_hud(screen, fonts, round_, play_game, total_levels):
-    # Top line: level, streak and score
-    top = "Level {} / {}     Streak {}     Score {}".format(
-        round_["level"], total_levels, play_game["streak"], play_game["score"])
-    draw_text(screen, fonts["text"], top, TEXT, (450, 30))
+    # The top bar: level, streak, score and lives, each with a small label
+    ui.draw_panel(screen, pygame.Rect(40, 14, 820, 70))
+    draw_stat(screen, fonts, "LEVEL", "{} / {}".format(round_["level"], total_levels), 170)
+    draw_stat(screen, fonts, "STREAK", str(play_game["streak"]), 390)
+    draw_stat(screen, fonts, "SCORE", str(play_game["score"]), 610)
+    draw_lives(screen, fonts, play_game["lives"], 770)
 
-    # Hearts: one red circle per life left
-    for i in range(play_game["lives"]):
-        pygame.draw.circle(screen, RED, (420 + i * 30, 70), 10)
-
-    # The gem's name is shown during the show and reveal phases
+    # The gem's name shows during show, cover and reveal. Otherwise it is hidden.
     if round_["phase"] in ("show", "cover", "reveal"):
-        draw_text(screen, fonts["text"], "Gem: " + round_["gem"]["gem"], GOLD, (450, 110))
+        ui.draw_pill(screen, fonts["text"], "Gem: " + round_["gem"]["gem"], GOLD, PANEL, (450, 112))
+    else:
+        ui.draw_pill(screen, fonts["text"], "Gem hidden", MUTED, PANEL, (450, 112))
 
-    # Phase text at the bottom of the screen
-    draw_phase_text(screen, fonts, round_)
+
+def draw_stat(screen, fonts, label, value, centre_x):
+    # A small label above a big value
+    ui.draw_text(screen, fonts["small"], label, MUTED, (centre_x, 30))
+    ui.draw_text(screen, fonts["big"], value, TEXT, (centre_x, 58))
+
+
+def draw_lives(screen, fonts, lives, centre_x):
+    # One circle for each life: filled while you still have it, empty once lost
+    ui.draw_text(screen, fonts["small"], "LIVES", MUTED, (centre_x, 30))
+    for i in range(LIVES):
+        x = centre_x - 22 + i * 22
+        if i < lives:
+            pygame.draw.circle(screen, RED, (x, 58), 8)
+        else:
+            pygame.draw.circle(screen, PANEL_EDGE, (x, 58), 8, 2)
 
 
 def draw_phase_text(screen, fonts, round_):
+    # The message pill at the bottom, coloured to match the phase
     phase = round_["phase"]
     if phase == "show":
-        draw_text(screen, fonts["big"], "Watch the gem...", TEXT, (450, 530))
+        ui.draw_pill(screen, fonts["big"], "Watch the gem...", TEXT, PANEL, (450, 530))
     elif phase == "cover":
-        draw_text(screen, fonts["big"], "Covering the gem...", TEXT, (450, 530))
+        ui.draw_pill(screen, fonts["big"], "Covering the gem...", TEXT, PANEL, (450, 530))
     elif phase == "shuffle":
-        done = min(round_["move_index"] + 1, len(round_["moves"]))
-        text = "Shuffling {} / {}".format(done, len(round_["moves"]))
-        draw_text(screen, fonts["big"], text, TEXT, (450, 530))
+        draw_shuffle_progress(screen, fonts, round_)
     elif phase == "choose":
-        draw_text(screen, fonts["big"], "Pick a bowl!", GOLD, (450, 530))
+        ui.draw_pill(screen, fonts["big"], "Pick a bowl!", BACKGROUND, GOLD, (450, 530))
+        ui.draw_text(screen, fonts["small"], "Click a bowl, or press its number 1 to 5", MUTED, (450, 566))
     elif phase == "reveal":
-        if round_["correct"] == 1:
-            text = "Correct! +{}".format(round_["points"])
-            draw_text(screen, fonts["big"], text, GREEN, (450, 530))
-        else:
-            draw_text(screen, fonts["big"], "Wrong!", RED, (450, 530))
+        draw_reveal_text(screen, fonts, round_)
 
 
-def draw_text(screen, font, text, colour, centre):
-    # Draw text centred on the given point
-    surface = font.render(text, True, colour)
-    screen.blit(surface, surface.get_rect(center=centre))
+def draw_shuffle_progress(screen, fonts, round_):
+    # The text says how many moves are done, and a bar fills up as they go
+    done = min(round_["move_index"] + 1, len(round_["moves"]))
+    total = len(round_["moves"])
+    ui.draw_pill(screen, fonts["big"], "Shuffling {} / {}".format(done, total), TEXT, PANEL, (450, 530))
+    bar = pygame.Rect(300, 562, 300, 8)
+    pygame.draw.rect(screen, PANEL_EDGE, bar, border_radius=4)
+    filled = int(300 * round_["move_index"] / total)
+    pygame.draw.rect(screen, GOLD, pygame.Rect(300, 562, filled, 8), border_radius=4)
+
+
+def draw_reveal_text(screen, fonts, round_):
+    # Green for a right answer, red for a wrong one
+    if round_["correct"] == 1:
+        text = "Correct! +{}".format(round_["points"])
+        ui.draw_pill(screen, fonts["big"], text, BACKGROUND, GREEN, (450, 530))
+    else:
+        ui.draw_pill(screen, fonts["big"], "Wrong!", TEXT, RED, (450, 530))
 
 
 if __name__ == "__main__":

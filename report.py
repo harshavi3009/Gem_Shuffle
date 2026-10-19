@@ -6,7 +6,8 @@ import os
 import numpy as np
 import pandas as pd
 import pygame
-from settings import BACKGROUND, TEXT, GOLD, GREEN
+import ui
+from settings import TEXT, MUTED, GOLD, GREEN, PANEL_EDGE, BACKGROUND
 
 ROUNDS_PATH = os.path.join("data", "rounds.csv")
 GAMES_PATH = os.path.join("data", "games.csv")
@@ -174,77 +175,91 @@ def leaderboard_rows():
 
 
 # ---------- drawing ----------
+# The background is already on the screen when these run (main.py draws it first)
 
 def draw_focus(screen, fonts, play_game):
-    # The Focus Report screen: text rows, then the bar chart
+    # Two cards: the statistics on the left, the bar chart on the right
     stats = play_game["focus"]
-    screen.fill(BACKGROUND)
-    draw_line(screen, fonts["big"], "Focus Report", GOLD, (40, 30))
+    ui.draw_text_left(screen, fonts["big"], "Focus Report", GOLD, (40, 30))
+    subtitle = "{}   -   score {}   -   {}".format(play_game["player"], play_game["score"], play_game["result"])
+    ui.draw_text_left(screen, fonts["small"], subtitle, MUTED, (42, 72))
 
-    # Text rows, one for each statistic
+    ui.draw_panel(screen, pygame.Rect(40, 110, 430, 380))
+    draw_stat_rows(screen, fonts, stats)
+    ui.draw_panel(screen, pygame.Rect(490, 110, 370, 380))
+    draw_bars(screen, fonts, stats["acc_by_cups"])
+
+    ui.draw_pill(screen, fonts["text"], "R  Play again", BACKGROUND, GREEN, (320, 530))
+    ui.draw_pill(screen, fonts["text"], "M  Menu", TEXT, PANEL_EDGE, (580, 530))
+
+
+def draw_stat_rows(screen, fonts, stats):
+    # Each row: a label on the left, the value on the right
+    favourite = "-"
+    if stats["favourite_slot"] is not None:
+        favourite = str(stats["favourite_slot"] + 1)
     rows = [
-        "Player: {}     Score: {}     Result: {}".format(
-            play_game["player"], play_game["score"], play_game["result"]),
-        "You scored higher than {}% of all players".format(stats["better_than"]),
-        "Accuracy: {}%".format(stats["accuracy"]),
-        "Average reaction: {} s     Slowest 10% of decisions: {} s".format(
-            stats["avg_reaction"], stats["slow_decision"]),
-        "Favourite bowl: number {} ({}% of your picks)".format(
-            stats["favourite_slot"] + 1 if stats["favourite_slot"] is not None else "-",
-            stats["favourite_share"]),
-        "Gems found: {} of {}".format(stats["gems_collected"], stats["gems_total"]),
+        ("Better than", "{}% of players".format(stats["better_than"])),
+        ("Accuracy", "{}%".format(stats["accuracy"])),
+        ("Average reaction", "{} s".format(stats["avg_reaction"])),
+        ("Slowest 10% of decisions", "{} s".format(stats["slow_decision"])),
+        ("Favourite bowl", "number {} ({}%)".format(favourite, stats["favourite_share"])),
+        ("Gems found", "{} of {}".format(stats["gems_collected"], stats["gems_total"])),
     ]
     for i in range(len(rows)):
-        draw_line(screen, fonts["text"], rows[i], TEXT, (40, 80 + i * 34))
+        y = 135 + i * 46
+        ui.draw_text_left(screen, fonts["small"], rows[i][0], MUTED, (62, y))
+        ui.draw_text_right(screen, fonts["text"], rows[i][1], TEXT, (448, y - 2))
 
-    # Still to find: names that are not found yet, in alphabetical order
+    # Still to find: the gems not found yet, in alphabetical order
     still = ", ".join(sorted(stats["still_to_find"]))
     if still != "":
-        draw_line(screen, fonts["small"], "Still to find: " + still, TEXT, (40, 290))
-
-    draw_bars(screen, fonts, stats["acc_by_cups"])
-    draw_line(screen, fonts["text"], "R = play again     M = menu", GREEN, (40, 570))
+        ui.draw_text_left(screen, fonts["small"], "Still to find", MUTED, (62, 415))
+        ui.draw_text_left(screen, fonts["small"], still, TEXT, (62, 437))
 
 
 def draw_bars(screen, fonts, acc):
     # acc is a table: the bowl count is the label, the accuracy % is the value.
     # The longest bar is 130 pixels; the others are scaled to it.
-    draw_line(screen, fonts["text"], "Accuracy by number of bowls (all players)", TEXT, (40, 330))
+    ui.draw_text_left(screen, fonts["text"], "Accuracy by bowls", TEXT, (512, 130))
+    ui.draw_text_left(screen, fonts["small"], "all players", MUTED, (512, 160))
     if len(acc) == 0:
+        ui.draw_text_left(screen, fonts["small"], "No rounds saved yet", MUTED, (512, 200))
         return
     biggest = acc.max()
-    y = 370
+    y = 200
     for bowls, value in acc.items():
         width = 0
         if biggest > 0:
             width = int(130 * value / biggest)
-        pygame.draw.rect(screen, GREEN, (40, y, width, 22))
-        label = "{} bowls {}%".format(int(bowls), int(round(value)))
-        draw_line(screen, fonts["small"], label, TEXT, (40 + 130 + 12, y))
-        y += 34
+        if width > 0:
+            pygame.draw.rect(screen, GREEN, (512, y, width, 24), border_radius=6)
+        label = "{} bowls  {}%".format(int(bowls), int(round(value)))
+        ui.draw_text_left(screen, fonts["small"], label, TEXT, (512 + 130 + 12, y + 3))
+        y += 46
 
 
 def draw_leaderboard(screen, fonts, rows):
-    # The top 5 games, with a heading row
-    screen.fill(BACKGROUND)
-    draw_line(screen, fonts["big"], "Leaderboard (top 5)", GOLD, (40, 30))
-    draw_line(screen, fonts["text"], "Player", GOLD, (40, 90))
-    draw_line(screen, fonts["text"], "Score", GOLD, (300, 90))
-    draw_line(screen, fonts["text"], "Level", GOLD, (450, 90))
-    draw_line(screen, fonts["text"], "Result", GOLD, (600, 90))
+    # One card with a heading row, then the top 5 games
+    ui.draw_text_left(screen, fonts["big"], "Leaderboard", GOLD, (40, 30))
+    ui.draw_text_left(screen, fonts["small"], "Top 5 games by score", MUTED, (42, 72))
+    ui.draw_panel(screen, pygame.Rect(40, 110, 820, 380))
+
+    headings = [("Player", 70), ("Score", 380), ("Level", 540), ("Result", 700)]
+    for label, x in headings:
+        ui.draw_text_left(screen, fonts["small"], label, MUTED, (x, 132))
+
     for i in range(len(rows)):
         row = rows[i]
-        y = 130 + i * 40
-        draw_line(screen, fonts["text"], str(row["player"]), TEXT, (40, y))
-        draw_line(screen, fonts["text"], str(row["score"]), TEXT, (300, y))
-        draw_line(screen, fonts["text"], str(row["level_reached"]), TEXT, (450, y))
-        draw_line(screen, fonts["text"], str(row["result"]), TEXT, (600, y))
+        y = 170 + i * 56
+        colour = TEXT
+        if i == 0:
+            colour = GOLD
+        ui.draw_text_left(screen, fonts["text"], str(row["player"]), colour, (70, y))
+        ui.draw_text_left(screen, fonts["text"], str(row["score"]), colour, (380, y))
+        ui.draw_text_left(screen, fonts["text"], str(row["level_reached"]), colour, (540, y))
+        ui.draw_text_left(screen, fonts["text"], str(row["result"]), colour, (700, y))
     if len(rows) == 0:
-        draw_line(screen, fonts["text"], "No games saved yet", TEXT, (40, 130))
-    draw_line(screen, fonts["text"], "M = menu", GREEN, (40, 570))
+        ui.draw_text_left(screen, fonts["text"], "No games saved yet", MUTED, (70, 170))
 
-
-def draw_line(screen, font, text, colour, topleft):
-    # Draw text with its top-left corner at the given point
-    surface = font.render(text, True, colour)
-    screen.blit(surface, topleft)
+    ui.draw_pill(screen, fonts["text"], "M  Menu", TEXT, PANEL_EDGE, (450, 530))

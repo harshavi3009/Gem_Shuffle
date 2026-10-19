@@ -19,11 +19,17 @@ STREAK_FOR_BONUS = 3         # correct answers in a row needed for double points
 COLLECTOR_BONUS = 100        # points for finding every gem type once
 
 # colours as RGB tuples
-BACKGROUND = (30, 30, 40)
-TABLE = (120, 80, 40)
-RIM_COLOUR = (200, 200, 210) # outer rim of a bowl seen from above
-INNER_COLOUR = (150, 150, 160) # darker inner disc of a bowl (used when there is no bowl.png)
-TEXT = (240, 240, 240)
-GOLD = (255, 200, 40)
-RED = (220, 50, 50)
-GREEN = (60, 200, 90)
+# The screen background is a gradient from BACKGROUND (top) to BACKGROUND_BOTTOM
+BACKGROUND = (22, 26, 42)        # night navy
+BACKGROUND_BOTTOM = (11, 13, 24) # darker navy at the bottom
+TABLE = (30, 104, 92)            # green felt table top
+TABLE_EDGE = (20, 74, 66)        # darker border around the felt
+PANEL = (32, 38, 60)             # cards and the top bar
+PANEL_EDGE = (62, 72, 104)       # thin border around cards
+RIM_COLOUR = (236, 232, 224)     # outer rim of a bowl (cream china)
+INNER_COLOUR = (196, 188, 176)   # darker inner disc of a bowl (used when there is no bowl.png)
+TEXT = (238, 241, 248)
+MUTED = (146, 154, 180)          # small labels and hints
+GOLD = (255, 200, 60)
+RED = (240, 88, 88)
+GREEN = (86, 214, 136)
