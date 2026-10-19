@@ -7,6 +7,7 @@ import datetime
 import pygame
 import data
 import game
+import report
 from settings import (SCREEN, FPS, TABLE_Y, BOWL_R, LIFT_ASIDE, SHADOW_ALPHA,
                       SHOW_MS, COVER_MS, REVEAL_MS, BACKGROUND, TABLE, RIM_COLOUR,
                       INNER_COLOUR, TEXT, GOLD, RED, GREEN)
@@ -42,6 +43,7 @@ def main():
     name = ""
     play_game = None
     round_ = None
+    board_rows = []
     running = True
 
     while running:
@@ -56,6 +58,7 @@ def main():
                     play_game, round_ = start_game(name, levels, gems, now)
                     state = "play"
                 elif action == "leaderboard":
+                    board_rows = report.leaderboard_rows()
                     state = "leaderboard"
             elif state == "play" and round_["phase"] == "choose":
                 choose_event(event, round_, play_game, len(gems), now)
@@ -77,9 +80,9 @@ def main():
         elif state == "play":
             draw_play(screen, fonts, round_, play_game, len(levels), now)
         elif state == "report":
-            draw_report(screen, fonts, play_game)
+            report.draw_focus(screen, fonts, play_game)
         elif state == "leaderboard":
-            draw_placeholder(screen, fonts, "Leaderboard comes in step 4", "M = menu")
+            report.draw_leaderboard(screen, fonts, board_rows)
 
         pygame.display.flip()
         clock.tick(FPS)
@@ -178,7 +181,10 @@ def update_play(round_, play_game, levels, gems, now):
         round_ = start_round(levels[play_game["level_index"]], gems, now)
         return round_, "play"
 
+    # The game is over: save it, and work out the Focus Report numbers
     play_game["result"] = result
+    report.save_game(play_game)
+    play_game["focus"] = report.focus_report(play_game, gems)
     return round_, "report"
 
 
@@ -445,26 +451,6 @@ def draw_phase_text(screen, fonts, round_):
             draw_text(screen, fonts["big"], text, GREEN, (450, 530))
         else:
             draw_text(screen, fonts["big"], "Wrong!", RED, (450, 530))
-
-
-def draw_report(screen, fonts, play_game):
-    # Placeholder until report.py is written in step 4
-    lines = [
-        "Game over: {}".format(play_game["result"]),
-        "Score: {}".format(play_game["score"]),
-        "The Focus Report comes in step 4",
-    ]
-    draw_placeholder(screen, fonts, lines, "R = play again     M = menu")
-
-
-def draw_placeholder(screen, fonts, lines, footer):
-    # Shows a few centred lines and a footer. Used for screens not built yet.
-    if isinstance(lines, str):
-        lines = [lines]
-    screen.fill(BACKGROUND)
-    for i in range(len(lines)):
-        draw_text(screen, fonts["text"], lines[i], TEXT, (450, 220 + i * 40))
-    draw_text(screen, fonts["text"], footer, GREEN, (450, 500))
 
 
 def draw_text(screen, font, text, colour, centre):
