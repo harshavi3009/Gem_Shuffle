@@ -4,6 +4,7 @@
 # phase decides what happens inside a round (see the build doc, Section 7).
 
 import datetime
+import os
 import pygame
 import data
 import game
@@ -12,7 +13,7 @@ import ui
 from settings import (SCREEN, FPS, TABLE_Y, BOWL_R, LIFT_ASIDE, SHADOW_ALPHA, LIVES,
                       SHOW_MS, COVER_MS, REVEAL_MS, BACKGROUND, TABLE, TABLE_EDGE,
                       PANEL, PANEL_EDGE, RIM_COLOUR, INNER_COLOUR, TEXT, MUTED,
-                      GOLD, RED, GREEN)
+                      GOLD, RED, GREEN, GEM_COLOURS)
 
 # Set to True to run the 1,000-round tracking check when the game starts
 DEBUG = False
@@ -38,10 +39,13 @@ def main():
         pygame.quit()
         return
 
+    # Step 4: load the bowl and gem pictures, once
+    images = load_images(gems)
+
     if DEBUG:
         game.test_tracking()
 
-    # Step 4: the variables that the loop uses
+    # Step 5: the variables that the loop uses
     state = "menu"
     name = ""
     play_game = None
@@ -82,7 +86,7 @@ def main():
         if state == "menu":
             draw_menu(screen, fonts, name, now)
         elif state == "play":
-            draw_play(screen, fonts, round_, play_game, len(levels), now)
+            draw_play(screen, fonts, round_, play_game, len(levels), now, images)
         elif state == "report":
             report.draw_focus(screen, fonts, play_game)
         elif state == "leaderboard":
@@ -102,6 +106,24 @@ def load_fonts():
     fonts["text"] = pygame.font.Font(None, 32)
     fonts["small"] = pygame.font.Font(None, 26)
     return fonts
+
+
+def load_images(gems):
+    # Load every picture once, before the loop. A missing file is stored
+    # as None, and the game then draws a shape instead.
+    images = {}
+    images["bowl.png"] = load_image("bowl.png")
+    for gem in gems:
+        images[gem["image"]] = load_image(gem["image"])
+    return images
+
+
+def load_image(filename):
+    path = os.path.join("assets", filename)
+    if not os.path.exists(path):
+        return None
+    # convert_alpha keeps the see-through edges and makes drawing faster
+    return pygame.image.load(path).convert_alpha()
 
 
 # ---------- menu ----------
@@ -350,13 +372,13 @@ def draw_menu(screen, fonts, name, now):
     ui.draw_text(screen, fonts["small"], "The L key works only while the name box is empty.", MUTED, (450, 508))
 
 
-def draw_play(screen, fonts, round_, play_game, total_levels, now):
+def draw_play(screen, fonts, round_, play_game, total_levels, now, images):
     # Drawing order: the top bar, the table, slot numbers, the gem,
     # shadows, resting bowls, moving bowls, the rings, and the phase text
     draw_hud(screen, fonts, round_, play_game, total_levels)
     ui.draw_panel(screen, pygame.Rect(40, 150, 820, 330), TABLE, TABLE_EDGE)
     draw_slot_numbers(screen, fonts, round_)
-    draw_bowls(screen, round_, now)
+    draw_bowls(screen, round_, now, images)
     draw_phase_text(screen, fonts, round_)
 
 
@@ -367,17 +389,18 @@ def draw_slot_numbers(screen, fonts, round_):
         ui.draw_text(screen, fonts["small"], str(i + 1), TEXT, (int(x), TABLE_Y + BOWL_R + 18))
 
 
-def draw_bowls(screen, round_, now):
+def draw_bowls(screen, round_, now, images):
     # Work out where every bowl is this frame
     poses = []
     for bowl in round_["cups_list"]:
         poses.append(bowl_pose(bowl, round_, now))
+    bowl_image = images["bowl.png"]
 
     # The gem lies flat on the table under its bowl.
     # It is drawn before the bowls, so a bowl on top hides it.
     if round_["phase"] in ("show", "cover", "reveal"):
         gem_bowl = find_gem_bowl(round_)
-        draw_gem(screen, round_["slots_x"][gem_bowl["slot"]], TABLE_Y)
+        draw_gem(screen, round_["slots_x"][gem_bowl["slot"]], TABLE_Y, round_["gem"], images)
 
     # Shadows for the moving bowls go under all the bowls
     for pose in poses:
@@ -387,10 +410,10 @@ def draw_bowls(screen, round_, now):
     # Resting bowls, then the moving bowls on top
     for pose in poses:
         if not pose[3]:
-            draw_bowl(screen, pose[0], pose[1], pose[2])
+            draw_bowl(screen, pose[0], pose[1], pose[2], bowl_image)
     for pose in poses:
         if pose[3]:
-            draw_bowl(screen, pose[0], pose[1], pose[2])
+            draw_bowl(screen, pose[0], pose[1], pose[2], bowl_image)
 
     draw_rings(screen, round_, poses)
 
@@ -424,11 +447,16 @@ def find_gem_bowl(round_):
     return None
 
 
-def draw_bowl(screen, x, y, scale):
-    # A bowl seen from above: a light outer rim and a darker inner disc
+def draw_bowl(screen, x, y, scale, image):
+    # Use the bowl picture if there is one. Otherwise draw a rim and a darker inner disc.
     centre = (int(x), int(y))
-    pygame.draw.circle(screen, RIM_COLOUR, centre, int(BOWL_R * scale))
-    pygame.draw.circle(screen, INNER_COLOUR, centre, int((BOWL_R - 10) * scale))
+    if image is not None:
+        size = int(image.get_width() * scale)
+        picture = pygame.transform.smoothscale(image, (size, size))
+        screen.blit(picture, picture.get_rect(center=centre))
+    else:
+        pygame.draw.circle(screen, RIM_COLOUR, centre, int(BOWL_R * scale))
+        pygame.draw.circle(screen, INNER_COLOUR, centre, int((BOWL_R - 10) * scale))
 
 
 def draw_shadow(screen, x, y):
@@ -443,10 +471,14 @@ def draw_shadow(screen, x, y):
     screen.blit(shadow, (x + 6 - BOWL_R, y + 6 - BOWL_R))
 
 
-def draw_gem(screen, x, y):
-    # A small flat diamond shape lying on the table
-    points = [(x, y - 14), (x + 12, y), (x, y + 14), (x - 12, y)]
-    pygame.draw.polygon(screen, GOLD, points)
+def draw_gem(screen, x, y, gem, images):
+    # The gem's picture if there is one. Otherwise a flat diamond shape in the gem's colour.
+    picture = images[gem["image"]]
+    if picture is not None:
+        screen.blit(picture, picture.get_rect(center=(int(x), int(y))))
+    else:
+        points = [(x, y - 14), (x + 12, y), (x, y + 14), (x - 12, y)]
+        pygame.draw.polygon(screen, GEM_COLOURS.get(gem["gem"], GOLD), points)
 
 
 def draw_hud(screen, fonts, round_, play_game, total_levels):

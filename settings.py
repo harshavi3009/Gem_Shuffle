@@ -33,3 +33,12 @@ MUTED = (146, 154, 180)          # small labels and hints
 GOLD = (255, 200, 60)
 RED = (240, 88, 88)
 GREEN = (86, 214, 136)
+
+# gem colours, used for the drawn shape when a gem's PNG is missing
+GEM_COLOURS = {
+    "Ruby": (200, 30, 62),
+    "Emerald": (24, 150, 84),
+    "Sapphire": (38, 84, 210),
+    "Diamond": (196, 226, 244),
+    "Golden Laddoo": (235, 180, 50),
+}
