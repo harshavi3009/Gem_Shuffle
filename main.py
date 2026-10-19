@@ -113,6 +113,7 @@ def load_images(gems):
     # as None, and the game then draws a shape instead.
     images = {}
     images["bowl.png"] = load_image("bowl.png")
+    images["table.png"] = load_image("table.png")
     for gem in gems:
         images[gem["image"]] = load_image(gem["image"])
     return images
@@ -376,10 +377,21 @@ def draw_play(screen, fonts, round_, play_game, total_levels, now, images):
     # Drawing order: the top bar, the table, slot numbers, the gem,
     # shadows, resting bowls, moving bowls, the rings, and the phase text
     draw_hud(screen, fonts, round_, play_game, total_levels)
-    ui.draw_panel(screen, pygame.Rect(40, 150, 820, 330), TABLE, TABLE_EDGE)
+    draw_table(screen, images)
     draw_slot_numbers(screen, fonts, round_)
     draw_bowls(screen, round_, now, images)
     draw_phase_text(screen, fonts, round_)
+
+
+def draw_table(screen, images):
+    # The wood picture if there is one. Otherwise a green felt panel.
+    rect = pygame.Rect(40, 150, 820, 330)
+    picture = images["table.png"]
+    if picture is not None:
+        screen.blit(picture, rect)
+        pygame.draw.rect(screen, TABLE_EDGE, rect, 4, border_radius=14)
+    else:
+        ui.draw_panel(screen, rect, TABLE, TABLE_EDGE)
 
 
 def draw_slot_numbers(screen, fonts, round_):
