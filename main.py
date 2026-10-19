@@ -515,14 +515,23 @@ def draw_stat(screen, fonts, label, value, centre_x):
 
 
 def draw_lives(screen, fonts, lives, centre_x):
-    # One circle for each life: filled while you still have it, empty once lost
+    # One heart for each life: filled while you still have it, an outline once lost
     ui.draw_text(screen, fonts["small"], "LIVES", MUTED, (centre_x, 30))
     for i in range(LIVES):
         x = centre_x - 22 + i * 22
         if i < lives:
-            pygame.draw.circle(screen, RED, (x, 58), 8)
+            draw_heart(screen, x, 60, RED, 0)
         else:
-            pygame.draw.circle(screen, PANEL_EDGE, (x, 58), 8, 2)
+            draw_heart(screen, x, 60, PANEL_EDGE, 2)
+
+
+def draw_heart(screen, x, y, colour, width):
+    # A heart made from two circles and a triangle.
+    # width 0 fills the heart; a width of 2 draws only its outline.
+    pygame.draw.circle(screen, colour, (x - 4, y - 3), 5, width)
+    pygame.draw.circle(screen, colour, (x + 4, y - 3), 5, width)
+    points = [(x - 8, y - 1), (x + 8, y - 1), (x, y + 9)]
+    pygame.draw.polygon(screen, colour, points, width)
 
 
 def draw_phase_text(screen, fonts, round_):
