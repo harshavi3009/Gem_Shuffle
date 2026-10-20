@@ -13,7 +13,7 @@ import ui
 from settings import (SCREEN, FPS, TABLE_Y, BOWL_R, LIFT_ASIDE, SHADOW_ALPHA, LIVES,
                       SHOW_MS, COVER_MS, REVEAL_MS, BACKGROUND, TABLE, TABLE_EDGE,
                       PANEL, PANEL_EDGE, RIM_COLOUR, INNER_COLOUR, TEXT, MUTED,
-                      GOLD, RED, GREEN, GEM_COLOURS)
+                      GOLD, RED, GREEN, GEM_COLOURS, BLUE, ORANGE)
 
 # Set to True to run the 1,000-round tracking check when the game starts
 DEBUG = False
@@ -496,9 +496,9 @@ def draw_gem(screen, x, y, gem, images):
 def draw_hud(screen, fonts, round_, play_game, total_levels):
     # The top bar: level, streak, score and lives, each with a small label
     ui.draw_panel(screen, pygame.Rect(40, 14, 820, 70))
-    draw_stat(screen, fonts, "LEVEL", "{} / {}".format(round_["level"], total_levels), 170)
-    draw_stat(screen, fonts, "STREAK", str(play_game["streak"]), 390)
-    draw_stat(screen, fonts, "SCORE", str(play_game["score"]), 610)
+    draw_stat(screen, fonts, "LEVEL", "{} / {}".format(round_["level"], total_levels), 170, BLUE)
+    draw_stat(screen, fonts, "STREAK", str(play_game["streak"]), 390, ORANGE)
+    draw_stat(screen, fonts, "SCORE", str(play_game["score"]), 610, GOLD)
     draw_lives(screen, fonts, play_game["lives"], 770)
 
     # The gem's name shows during show, cover and reveal. Otherwise it is hidden.
@@ -508,10 +508,10 @@ def draw_hud(screen, fonts, round_, play_game, total_levels):
         ui.draw_pill(screen, fonts["text"], "Gem hidden", MUTED, PANEL, (450, 112))
 
 
-def draw_stat(screen, fonts, label, value, centre_x):
-    # A small label above a big value
+def draw_stat(screen, fonts, label, value, centre_x, colour):
+    # A small label above a big value, with the value in its own colour
     ui.draw_text(screen, fonts["small"], label, MUTED, (centre_x, 30))
-    ui.draw_text(screen, fonts["big"], value, TEXT, (centre_x, 58))
+    ui.draw_text(screen, fonts["big"], value, colour, (centre_x, 58))
 
 
 def draw_lives(screen, fonts, lives, centre_x):

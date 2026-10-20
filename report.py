@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pygame
 import ui
-from settings import TEXT, MUTED, GOLD, GREEN, PANEL_EDGE, BACKGROUND
+from settings import TEXT, MUTED, GOLD, GREEN, PANEL_EDGE, BACKGROUND, BAR_COLOURS, SILVER, BRONZE
 
 ROUNDS_PATH = os.path.join("data", "rounds.csv")
 GAMES_PATH = os.path.join("data", "games.csv")
@@ -228,12 +228,14 @@ def draw_bars(screen, fonts, acc):
         return
     biggest = acc.max()
     y = 200
-    for bowls, value in acc.items():
+    for i, (bowls, value) in enumerate(acc.items()):
         width = 0
         if biggest > 0:
             width = int(130 * value / biggest)
+        # Each bar gets the next colour in the list, wrapping round if there are more bars
+        bar_colour = BAR_COLOURS[i % len(BAR_COLOURS)]
         if width > 0:
-            pygame.draw.rect(screen, GREEN, (512, y, width, 24), border_radius=6)
+            pygame.draw.rect(screen, bar_colour, (512, y, width, 24), border_radius=6)
         label = "{} bowls  {}%".format(int(bowls), int(round(value)))
         ui.draw_text_left(screen, fonts["small"], label, TEXT, (512 + 130 + 12, y + 3))
         y += 46
@@ -252,9 +254,11 @@ def draw_leaderboard(screen, fonts, rows):
     for i in range(len(rows)):
         row = rows[i]
         y = 170 + i * 56
+        # Gold, silver and bronze for the top three places
+        place_colours = [GOLD, SILVER, BRONZE]
         colour = TEXT
-        if i == 0:
-            colour = GOLD
+        if i < len(place_colours):
+            colour = place_colours[i]
         ui.draw_text_left(screen, fonts["text"], str(row["player"]), colour, (70, y))
         ui.draw_text_left(screen, fonts["text"], str(row["score"]), colour, (380, y))
         ui.draw_text_left(screen, fonts["text"], str(row["level_reached"]), colour, (540, y))

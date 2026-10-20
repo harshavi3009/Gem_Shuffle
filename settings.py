@@ -34,6 +34,14 @@ GOLD = (255, 200, 60)
 RED = (240, 88, 88)
 GREEN = (86, 214, 136)
 
+# accent colours for the HUD values, the report bars and the leaderboard places
+BLUE = (110, 190, 255)
+ORANGE = (255, 150, 70)
+PURPLE = (180, 130, 255)
+SILVER = (200, 208, 220)
+BRONZE = (210, 140, 80)
+BAR_COLOURS = [BLUE, ORANGE, PURPLE, GREEN, GOLD]
+
 # gem colours, used for the drawn shape when a gem's PNG is missing
 GEM_COLOURS = {
     "Ruby": (200, 30, 62),
